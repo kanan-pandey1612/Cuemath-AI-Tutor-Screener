@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+groq
+python-multipart
+python-dotenv
+edge-tts

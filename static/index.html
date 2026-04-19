@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuemath AI Screener</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <div class="app-wrapper">
+        <header>
+            <div class="logo-placeholder">Cuemath</div>
+            <h2>Tutor Screening Portal</h2>
+        </header>
+
+        <main id="landing-screen" class="container landing-container">
+            <div class="landing-content">
+                <div class="landing-icon">🎙️</div>
+                <h1>Welcome to the AI Interview</h1>
+                <p>This is a voice-based screening to assess your tutoring skills. Please ensure you are in a quiet environment and your microphone is working.</p>
+                <button id="start-interview-btn" class="btn primary">Start Interview</button>
+            </div>
+        </main>
+
+        <main id="interview-screen" class="container hidden">
+            <div class="interviewer-profile">
+                <div class="avatar">AI</div>
+                <div class="info">
+                    <h3>Alex (AI Interviewer)</h3>
+                    <p>Cuemath Hiring Team</p>
+                </div>
+            </div>
+            
+            <div id="chat-box" class="chat-box"></div>
+            
+            <div class="controls">
+                <div id="timer-display" class="timer hidden">Time to answer: <span id="time-left">30</span>s</div>
+                
+                <canvas id="visualizer" style="width: 100%; height: 60px; background-color: #0f1115; border: 1px solid #333; border-radius: 8px; margin-bottom: 15px; display: none;"></canvas>
+
+                <p id="status-text" class="status-text">Alex is speaking...</p>
+                <button id="record-btn" class="btn primary" disabled>Start Answering</button>
+            </div>
+        </main>
+
+        <main id="evaluation-screen" class="container hidden">
+            <div class="eval-header">
+                <h2>Interview Complete</h2>
+                <h3 id="final-recommendation">Processing recommendation...</h3>
+                <div class="btn-group">
+                    <button id="view-details-btn" class="btn secondary hidden">View Detailed Analysis</button>
+                    <button id="view-transcript-btn" class="btn secondary hidden">View Transcript</button>
+                    <button id="exit-btn-1" class="btn danger-outline hidden">Exit Interview</button>
+                </div>
+            </div>
+            
+            <div class="dashboard summary-dashboard">
+                <div class="chart-container">
+                    <canvas id="rubric-chart"></canvas>
+                </div>
+                <div id="rubric-content" class="rubric-details">
+                </div>
+            </div>
+        </main>
+
+        <main id="detailed-screen" class="container hidden">
+             <div class="eval-header">
+                <h2>In-Depth Analysis</h2>
+                <p id="overall-explanation" class="overall-text"></p>
+                <div class="btn-group">
+                    <button id="back-to-summary-btn" class="btn secondary">Back to Summary</button>
+                    <button id="exit-btn-2" class="btn danger-outline">Exit Interview</button>
+                </div>
+            </div>
+            <div id="detailed-content" class="dashboard detailed-dashboard">
+            </div>
+        </main>
+
+        <main id="feedback-screen" class="container hidden">
+            <div class="eval-header">
+                <h2>Share Your Feedback</h2>
+                <p class="overall-text">Help us improve the Cuemath AI Interview experience.</p>
+            </div>
+            <div class="dashboard feedback-dashboard">
+                <form id="feedback-form" class="feedback-form">
+                    
+                    <div class="form-group">
+                        <label>1. How was your overall experience?</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="q1" value="poor"> Poor</label>
+                            <label><input type="radio" name="q1" value="fair"> Fair</label>
+                            <label><input type="radio" name="q1" value="good"> Good</label>
+                            <label><input type="radio" name="q1" value="excellent"> Excellent</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>2. How relevant were the interview questions?</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="q2" value="poor"> Poor</label>
+                            <label><input type="radio" name="q2" value="fair"> Fair</label>
+                            <label><input type="radio" name="q2" value="good"> Good</label>
+                            <label><input type="radio" name="q2" value="excellent"> Excellent</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>3. How natural did the AI voice and pacing feel?</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="q3" value="poor"> Robotic</label>
+                            <label><input type="radio" name="q3" value="fair"> Okay</label>
+                            <label><input type="radio" name="q3" value="good"> Natural</label>
+                            <label><input type="radio" name="q3" value="excellent"> Very Human-like</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>4. Did you experience any technical glitches?</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="q4" value="yes"> Yes, major issues</label>
+                            <label><input type="radio" name="q4" value="minor"> Yes, minor issues</label>
+                            <label><input type="radio" name="q4" value="no"> No, smooth experience</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>5. Was the user interface easy to use?</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="q5" value="poor"> Poor</label>
+                            <label><input type="radio" name="q5" value="fair"> Fair</label>
+                            <label><input type="radio" name="q5" value="good"> Good</label>
+                            <label><input type="radio" name="q5" value="excellent"> Excellent</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>6. Do you feel the evaluation was accurate based on your answers?</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="q6" value="poor"> Not Accurate</label>
+                            <label><input type="radio" name="q6" value="fair"> Somewhat</label>
+                            <label><input type="radio" name="q6" value="good"> Mostly Accurate</label>
+                            <label><input type="radio" name="q6" value="excellent"> Very Accurate</label>
+                        </div>
+                    </div>
+
+                    <button type="button" id="submit-feedback-btn" class="btn primary" style="margin-top: 1rem;">Submit Feedback</button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <div id="thank-you-popup" class="popup-overlay hidden">
+        <div class="popup-content">
+            <div class="success-icon">✅</div>
+            <h2>Feedback Submitted</h2>
+            <p>Thank you for helping us improve Cuemath! You may now close this window.</p>
+        </div>
+    </div>
+
+    <div id="error-popup" class="popup-overlay hidden">
+        <div class="popup-content">
+            <div class="error-icon">⚠️</div>
+            <h2>Incomplete Feedback</h2>
+            <p style="margin-bottom: 1.5rem;">Please answer all 6 questions before submitting your feedback. We value your input!</p>
+            <button id="close-error-btn" class="btn secondary" style="margin: 0 auto;">OK</button>
+        </div>
+    </div>
+
+    <div id="transcript-modal" class="popup-overlay hidden">
+        <div class="transcript-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem;">
+                <h2 style="margin: 0; color: var(--primary);">Full Interview Transcript</h2>
+                <button id="close-transcript-btn" style="background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <div id="transcript-log" class="transcript-log"></div>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=999"></script>
+</body>
+</html>
