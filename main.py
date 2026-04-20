@@ -205,7 +205,7 @@ async def chat(audio: Optional[UploadFile] = File(None), is_timeout: str = Form(
         try:
             # Using the original, powerful 70B model
             completion = client.chat.completions.create(
-                model="llama-3.1-8b-instant",#model="llama-3.3-70b-versatile", 
+                model="llama-3.3-70b-versatile", 
                 messages=messages_for_llm
             )
             ai_text = completion.choices[0].message.content
@@ -258,46 +258,60 @@ async def evaluate():
     eval_history.append(evaluation_prompt)
     
     try:
-        # Using the original, powerful 70B model
+        # PLAN A: Try the highly-intelligent 70B model first
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             response_format={ "type": "json_object" },
             messages=eval_history
         )
         raw_content = completion.choices[0].message.content
+        print("Evaluation successful using 70B model.")
+
+    except Exception as e_70b:
+        print(f"70B Model failed (likely rate limit): {e_70b}. Falling back to 8B...")
         
-        match = re.search(r'\{.*\}', raw_content, re.DOTALL)
-        clean_content = match.group(0) if match else raw_content
-        clean_content = clean_content.strip() 
-        
-        result = json.loads(clean_content)
-        
-        if "dimensions" not in result:
-            result["dimensions"] = []
-        if "final_recommendation" not in result:
-            result["final_recommendation"] = "Pass (Defaulted)"
-        if "overall_explanation" not in result:
-            result["overall_explanation"] = "Evaluation complete."
+        try:
+            # PLAN B: If 70B crashes, instantly try the 8B model with a 500K limit
+            completion = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                response_format={ "type": "json_object" },
+                messages=eval_history
+            )
+            raw_content = completion.choices[0].message.content
+            print("Evaluation successful using 8B fallback model.")
             
-    except Exception as e:
-        print(f"EVALUATION CRASH PROTECTED: {e}")
-        # Server Crash Protection! Now with all 5 dimensions so the UI always looks correct.
-        result = {
-            "final_recommendation": "API Limit Reached",
-            "overall_explanation": "The Groq AI API rate limit was exhausted during evaluation. Please wait a moment or review the raw transcript manually.",
-            "dimensions": [
-                {"name": "Clarity", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"},
-                {"name": "Warmth", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"},
-                {"name": "Simplicity", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"},
-                {"name": "Patience", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"},
-                {"name": "Fluency", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"}
-            ]
-        }
+        except Exception as e_8b:
+            print(f"BOTH MODELS CRASHED: {e_8b}")
+            # PLAN C: Absolute worst-case scenario. If even the 8B model fails, show the UI.
+            result = {
+                "final_recommendation": "API Limit Reached",
+                "overall_explanation": "The AI API rate limit was exhausted during evaluation. Please review the raw transcript manually.",
+                "dimensions": [
+                    {"name": "Clarity", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"},
+                    {"name": "Warmth", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"},
+                    {"name": "Simplicity", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"},
+                    {"name": "Patience", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"},
+                    {"name": "Fluency", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"}
+                ]
+            }
+            return JSONResponse({
+                "evaluation": result,
+                "transcript": session_data["history"]
+            })
+
+    # --- JSON PARSING (This runs if either 70B or 8B succeeds) ---
+    match = re.search(r'\{.*\}', raw_content, re.DOTALL)
+    clean_content = match.group(0) if match else raw_content
+    clean_content = clean_content.strip() 
     
-    return JSONResponse({
-        "evaluation": result,
-        "transcript": session_data["history"]
-    })
+    result = json.loads(clean_content)
+    
+    if "dimensions" not in result:
+        result["dimensions"] = []
+    if "final_recommendation" not in result:
+        result["final_recommendation"] = "Pass (Defaulted)"
+    if "overall_explanation" not in result:
+        result["overall_explanation"] = "Evaluation complete."
 
 @app.post("/api/reset")
 async def reset():
