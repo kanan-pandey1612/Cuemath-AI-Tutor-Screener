@@ -204,7 +204,7 @@ async def chat(audio: Optional[UploadFile] = File(None), is_timeout: str = Form(
         try:
             # Using the original, powerful 70B model
             completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile", 
+                model="llama-3.1-8b-instant",#model="llama-3.3-70b-versatile", 
                 messages=messages_for_llm
             )
             ai_text = completion.choices[0].message.content
