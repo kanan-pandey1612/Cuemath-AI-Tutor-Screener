@@ -148,10 +148,22 @@ async def chat(audio: Optional[UploadFile] = File(None), is_timeout: str = Form(
     global session_data
     
     ghost_words_and_noise = [
+        # Your Original Bug-Catchers
         "", "svendk takk.", "svendk takk", "amen.", "amen", 
         "thank you.", "thank you", "kuch nahin ho raha.", "kuch nahin ho raha",
         "pakhā chal raha hai.", "pakhā chal raha hai", "fan noise.", "fan noise",
-        "thanks for watching.", "thanks for watching"
+        "thanks for watching.", "thanks for watching", "period!", "period",
+        "all these words.", "all these words", "all these words!",
+        
+        # The "YouTube/Movie Metadata" Hallucinations
+        "subtitles by.", "subtitles by", "captions by.", "captions by",
+        "translated by.", "translated by", "subs by.", "subs by",
+        "thanks for listening.", "thanks for listening", "please subscribe.", "please subscribe",
+        "the end.", "the end", "end of transcript.", "end of transcript",
+        
+        # The "Breathing/Static" Micro-Hallucinations
+        "okay.", "okay", "yeah.", "yeah", "bye.", "bye", "you.", "you",
+        "hmm.", "hmm", "umm.", "umm", "uh.", "uh"
     ]
 
     is_internal_timeout = False
@@ -257,6 +269,17 @@ async def evaluate():
     eval_history = session_data["history"].copy()
     eval_history.append(evaluation_prompt)
     
+    # Define our perfect fallback UI elements
+    fallback_dimensions = [
+        {"name": "Clarity", "score": 0, "evidence": "None", "feedback": "API Limit / Missing Data", "improvements": "N/A"},
+        {"name": "Warmth", "score": 0, "evidence": "None", "feedback": "API Limit / Missing Data", "improvements": "N/A"},
+        {"name": "Simplicity", "score": 0, "evidence": "None", "feedback": "API Limit / Missing Data", "improvements": "N/A"},
+        {"name": "Patience", "score": 0, "evidence": "None", "feedback": "API Limit / Missing Data", "improvements": "N/A"},
+        {"name": "Fluency", "score": 0, "evidence": "None", "feedback": "API Limit / Missing Data", "improvements": "N/A"}
+    ]
+    
+    result = {}
+
     try:
         # PLAN A: Try the highly-intelligent 70B model first
         completion = client.chat.completions.create(
@@ -265,39 +288,49 @@ async def evaluate():
             messages=eval_history
         )
         raw_content = completion.choices[0].message.content
+        match = re.search(r'\{.*\}', raw_content, re.DOTALL)
+        clean_content = match.group(0) if match else raw_content
+        result = json.loads(clean_content.strip())
         print("Evaluation successful using 70B model.")
 
     except Exception as e_70b:
-        print(f"70B Model failed (likely rate limit): {e_70b}. Falling back to 8B...")
-        
+        print(f"70B Model failed: {e_70b}. Falling back to 8B...")
         try:
-            # PLAN B: If 70B crashes, instantly try the 8B model with a 500K limit
+            # PLAN B: Try the 8B model with 500K limit
             completion = client.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 response_format={ "type": "json_object" },
                 messages=eval_history
             )
             raw_content = completion.choices[0].message.content
+            match = re.search(r'\{.*\}', raw_content, re.DOTALL)
+            clean_content = match.group(0) if match else raw_content
+            result = json.loads(clean_content.strip())
             print("Evaluation successful using 8B fallback model.")
             
         except Exception as e_8b:
-            print(f"BOTH MODELS CRASHED: {e_8b}")
-            # PLAN C: Absolute worst-case scenario. If even the 8B model fails, show the UI.
+            print(f"BOTH MODELS OR PARSING CRASHED: {e_8b}")
+            # PLAN C: Absolute worst-case scenario
             result = {
                 "final_recommendation": "API Limit Reached",
-                "overall_explanation": "The AI API rate limit was exhausted during evaluation. Please review the raw transcript manually.",
-                "dimensions": [
-                    {"name": "Clarity", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"},
-                    {"name": "Warmth", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"},
-                    {"name": "Simplicity", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"},
-                    {"name": "Patience", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"},
-                    {"name": "Fluency", "score": 0, "evidence": "None", "feedback": "API Limit Reached", "improvements": "N/A"}
-                ]
+                "overall_explanation": "The AI API rate limit was exhausted during evaluation. Please review the transcript manually.",
+                "dimensions": fallback_dimensions
             }
-            return JSONResponse({
-                "evaluation": result,
-                "transcript": session_data["history"]
-            })
+
+    # THE MAGIC FIX: Force the UI to always have 5 cards even if the AI gets lazy
+    if "dimensions" not in result or len(result["dimensions"]) == 0:
+        result["dimensions"] = fallback_dimensions
+        result["overall_explanation"] = "The AI failed to format the specific dimension cards. " + result.get("overall_explanation", "")
+
+    if "final_recommendation" not in result:
+        result["final_recommendation"] = "Needs Manual Review"
+    if "overall_explanation" not in result:
+        result["overall_explanation"] = "Evaluation complete."
+
+    return JSONResponse({
+        "evaluation": result,
+        "transcript": session_data["history"]
+    })
 
     # --- JSON PARSING (This runs if either 70B or 8B succeeds) ---
     match = re.search(r'\{.*\}', raw_content, re.DOTALL)
